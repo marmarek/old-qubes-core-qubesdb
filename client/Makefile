@@ -1,4 +1,4 @@
-CFLAGS += -I../include -g -Wall -Werror -pie
+CFLAGS += -I../include -g -Wall -Wextra -Werror -pie
 CFLAGS += -fPIC
 CFLAGS += -DBACKEND_VMM_$(BACKEND_VMM)
 
@@ -18,6 +18,7 @@ install: all
 	ln -s qubesdb-cmd $(DESTDIR)$(BINDIR)/qubesdb-multiread
 	ln -s qubesdb-cmd $(DESTDIR)$(BINDIR)/qubesdb-list
 	ln -s qubesdb-cmd $(DESTDIR)$(BINDIR)/qubesdb-watch
+	install qubesdb-read-bool $(DESTDIR)$(BINDIR)/
 
 .PHONY: libqubesdb
 libqubesdb: libqubesdb.so

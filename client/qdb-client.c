@@ -202,7 +202,7 @@ static int send_command_to_daemon(qdb_handle_t h, struct qdb_hdr *hdr,
     }
     /* This function writes at most QDB_MAX_DATA bytes (3k) at once,
      * which is atomic on Linux */
-    if (write(h->fd, hdr, sizeof(*hdr)) < sizeof(*hdr)) {
+    if (write(h->fd, hdr, sizeof(*hdr)) < (int)sizeof(*hdr)) {
         /* some fatal error on previous command (and daemon closed connection)
          * perhaps? or daemon has restarted */
         if (errno == EPIPE) {
@@ -216,7 +216,7 @@ static int send_command_to_daemon(qdb_handle_t h, struct qdb_hdr *hdr,
                 return 0;
             } else {
                 /* try again */
-                if (write(h->fd, hdr, sizeof(*hdr)) < sizeof(*hdr))
+                if (write(h->fd, hdr, sizeof(*hdr)) < (int)sizeof(*hdr))
                     return 0;
                 else
                     return 1;
@@ -318,7 +318,7 @@ static int get_response(qdb_handle_t h, struct qdb_hdr *hdr) {
             }
             return 0;
         }
-        if (len < sizeof(*hdr)) {
+        if (len < (int)sizeof(*hdr)) {
             /* partial read?! */
             return 0;
         }
@@ -438,8 +438,10 @@ char **qdb_list(qdb_handle_t h, char *path, unsigned int *list_len) {
             free_path_list(plist);
             return NULL;
         }
-        /* TODO: QDB_RESP_ERROR ? (current daemon do not send such response to
-         * list */
+        if (hdr.type == QDB_RESP_ERROR) {
+            free_path_list(plist);
+            return NULL;
+        }
         assert(hdr.type == QDB_RESP_LIST);
         if (!hdr.path[0])
             /* end of list */
@@ -743,7 +745,7 @@ char *qdb_read_watch(qdb_handle_t h) {
         len = sizeof(hdr);
         if (!QioReadBuffer(h->read_pipe, &hdr, sizeof(hdr))) {
 #else
-        if ((len=read(h->fd, &hdr, sizeof(hdr))) < sizeof(hdr)) {
+        if ((len=read(h->fd, &hdr, sizeof(hdr))) < (int)sizeof(hdr)) {
 #endif
             if (len==0)
                 errno = EPIPE;

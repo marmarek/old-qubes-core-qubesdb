@@ -1,3 +1,123 @@
+qubesdb (4.0.5-1) unstable; urgency=medium
+
+  * Fix handling qdb_list errors
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 04 Oct 2017 14:58:23 +0200
+
+qubesdb (4.0.4-1) unstable; urgency=medium
+
+  [ Frédéric Pierret ]
+  * Fix CentOS dependencies: python3
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 29 Sep 2017 22:50:28 +0200
+
+qubesdb (4.0.3-1) unstable; urgency=medium
+
+  * python3: use unicode as return type for paths
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 29 Jul 2017 05:19:07 +0200
+
+qubesdb (4.0.2-1) unstable; urgency=medium
+
+  * debian: fix dependencies
+  * debian: drop non-deterministing orig.tar.gz creation
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 10 Jun 2017 12:18:54 +0200
+
+qubesdb (4.0.1-1) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * makefile: add 'clean' target
+  * travis: drop debootstrap workaround
+  * Add python3 bindings
+  * rpm: add python3 packaging, split python2 bindings into separate
+    package
+  * debian: add python3 packaging
+  * debian: do not disable hardening
+  * rpm: remove obsolete code
+
+  [ unman ]
+  * Fix Depends for trusty build
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: update for Qubes 4.0
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 29 May 2017 03:19:58 +0200
+
+qubesdb (4.0.0-1) wheezy; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * python: Move QubesDB out of "qubes" package.
+
+  [ Wojtek Porczyk ]
+  * qubesdb-read-bool: Interpret a value as boolean
+
+  [ Marek Marczykowski-Górecki ]
+  * daemon: append the log instead of overriding
+  * debian: fix dependencies for ubuntu package build
+  * debian: reformat Build-Depends
+  * debian: move python bindings to separate package
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 18 Nov 2016 02:45:23 +0100
+
+qubesdb (3.2.3-1) wheezy; urgency=medium
+
+  * daemon: fix removing pidfile and socket
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 18 Oct 2016 15:54:05 +0200
+
+qubesdb (3.2.2-1) wheezy; urgency=medium
+
+  * daemon: remove pidfile and socket only when created by this instance
+  * client: fix signed/unsigned comparision, add -Wextra flag
+  * gitignore
+  * python: raise OSError on EINTR
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 05 Oct 2016 14:37:00 +0200
+
+qubesdb (3.2.1-1) wheezy; urgency=medium
+
+  * systemd: drop dependency on local-fs.target
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 27 Jul 2016 02:35:57 +0200
+
+qubesdb (3.2.0-1) wheezy; urgency=medium
+
+  [ Wojtek Porczyk ]
+  * python: fix qubesdb module in vm
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: initial version
+  * debian: add missing Build-Depends: pkg-config, libpython2.7-dev
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 04 Jun 2016 23:34:57 +0200
+
+qubesdb (3.1.2-1) wheezy; urgency=medium
+
+  * Allow '@' in entry path
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 07 Jan 2016 06:18:29 +0100
+
+qubesdb (3.1.1-1) wheezy; urgency=medium
+
+  * debian: libsystemd-daemon-dev is renamed to libsystemd-dev
+  * Use new 'systemd' utils library when available
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 13 Dec 2015 04:59:54 +0100
+
+qubesdb (3.1.0-1) wheezy; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: disable debuginfo subpackage in qubes-kernel-vm-support
+
+  [ Rafał Wojdyła ]
+  * windows: use vchan logger
+  * windows: don't start daemon service immediately after install
+  * windows: wait for vchan availability on startup
+  * Update for pipe-server changes
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 28 Nov 2015 14:45:52 +0100
+
 qubesdb (3.0.5-1) wheezy; urgency=medium
 
   [ Rafał Wojdyła ]

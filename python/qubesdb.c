@@ -41,7 +41,7 @@
 #define PyMODINIT_FUNC DL_EXPORT(void)
 #endif
 
-#define PKG "qubes.qdb"
+#define PKG "qubesdb"
 #define CLS "QubesDB"
 
 static PyObject *qdb_error;
@@ -81,7 +81,7 @@ static int parse_handle_path(QdbHandle *self, PyObject *args,
 	"\n"                                            \
 	"Returns: [string] data read.\n"                \
 	"         None if key doesn't exist.\n"         \
-	"Raises qubes.qdb.Error on error.\n"               \
+	"Raises qubesdb.Error on error.\n"               \
 	"\n"
 
 static PyObject *qdbpy_read(QdbHandle *self, PyObject *args)
@@ -99,7 +99,11 @@ static PyObject *qdbpy_read(QdbHandle *self, PyObject *args)
     value = qdb_read(qdb, path, &value_len);
     Py_END_ALLOW_THREADS
     if (value) {
+#if PY_VERSION_HEX >= 0x03000000
+        PyObject *val = PyBytes_FromStringAndSize(value, value_len);
+#else
         PyObject *val = PyString_FromStringAndSize(value, value_len);
+#endif
         free(value);
         return val;
     }
@@ -115,7 +119,7 @@ static PyObject *qdbpy_read(QdbHandle *self, PyObject *args)
 	" data   [string] : data to write.\n"			\
 	"\n"							\
 	"Returns None on success.\n"				\
-	"Raises qubes.qdb.Error on error.\n"			\
+	"Raises qubesdb.Error on error.\n"			\
 	"\n"
 
 static PyObject *qdbpy_write(QdbHandle *self, PyObject *args)
@@ -146,7 +150,7 @@ static PyObject *qdbpy_write(QdbHandle *self, PyObject *args)
 	"\n"							\
 	"Returns: [string array] list of full paths matching given prefix.\n"	\
 	"         None if key doesn't exist.\n"			\
-	"Raises qubes.qdb.Error on error.\n"			\
+	"Raises qubesdb.Error on error.\n"			\
 	"\n"
 
 static PyObject *qdbpy_list(QdbHandle *self, PyObject *args)
@@ -168,7 +172,11 @@ static PyObject *qdbpy_list(QdbHandle *self, PyObject *args)
         int i;
         PyObject *val = PyList_New(list_len);
         for (i = 0; i < list_len; i++) {
+#if PY_VERSION_HEX >= 0x03000000
+            PyList_SetItem(val, i, PyUnicode_FromString(list[i]));
+#else
             PyList_SetItem(val, i, PyString_FromString(list[i]));
+#endif
             free(list[i]);
         }
         free(list);
@@ -184,7 +192,7 @@ static PyObject *qdbpy_list(QdbHandle *self, PyObject *args)
 	" path [string]:        path prefix to read.\n"                \
 	"\n"							\
 	"Returns: [string dict] dict of entries. Keys are full paths matching given prefix.\n"	\
-	"Raises qubes.qdb.Error on error.\n"			\
+	"Raises qubesdb.Error on error.\n"			\
 	"\n"
 
 static PyObject *qdbpy_multiread(QdbHandle *self, PyObject *args)
@@ -209,7 +217,11 @@ static PyObject *qdbpy_multiread(QdbHandle *self, PyObject *args)
         for (i = 0; i < list_len; i++) {
             PyDict_SetItemString(val,
                     values[2*i],
+#if PY_VERSION_HEX >= 0x03000000
+                    PyBytes_FromStringAndSize(values[2*i+1], values_len[i]));
+#else
                     PyString_FromStringAndSize(values[2*i+1], values_len[i]));
+#endif
             free(values[2*i]);
             free(values[2*i+1]);
         }
@@ -227,7 +239,7 @@ static PyObject *qdbpy_multiread(QdbHandle *self, PyObject *args)
 	" path [string] : path to remove\n"             \
 	"\n"                                            \
 	"Returns None on success.\n"                    \
-	"Raises qubes.qdb.Error on error.\n"               \
+	"Raises qubesdb.Error on error.\n"               \
 	"\n"
 
 static PyObject *qdbpy_rm(QdbHandle *self, PyObject *args)
@@ -252,7 +264,7 @@ static PyObject *qdbpy_rm(QdbHandle *self, PyObject *args)
 	" path     [string] : xenstore path.\n"				\
 	"\n"								\
 	"Returns None on success.\n"					\
-	"Raises qubes.qdb.Error on error.\n"				\
+	"Raises qubesdb.Error on error.\n"				\
 	"\n"
 
 static PyObject *qdbpy_watch(QdbHandle *self, PyObject *args)
@@ -276,7 +288,7 @@ static PyObject *qdbpy_watch(QdbHandle *self, PyObject *args)
 	"Read a watch notification.\n"				\
 	"\n"							\
 	"Returns: path.\n"			\
-	"Raises qubes.qdb.Error on error.\n"			\
+	"Raises qubesdb.Error on error.\n"			\
 	"\n"
 
 static PyObject *qdbpy_read_watch(QdbHandle *self, PyObject *args)
@@ -295,7 +307,11 @@ static PyObject *qdbpy_read_watch(QdbHandle *self, PyObject *args)
         return none(0);
     }
     /* Create string object. */
+#if PY_VERSION_HEX >= 0x03000000
+    val = PyUnicode_FromString(watch_path);
+#else
     val = PyString_FromString(watch_path);
+#endif
     free(watch_path);
     return val;
 }
@@ -305,7 +321,7 @@ static PyObject *qdbpy_read_watch(QdbHandle *self, PyObject *args)
 	" path  [string] : path.\n"		\
 	"\n"						\
 	"Returns None on success.\n"			\
-	"Raises qubes.qdb.Error on error.\n"		\
+	"Raises qubesdb.Error on error.\n"		\
 	"\n"
 
 static PyObject *qdbpy_unwatch(QdbHandle *self, PyObject *args)
@@ -329,7 +345,7 @@ static PyObject *qdbpy_unwatch(QdbHandle *self, PyObject *args)
 	"You can monitor this FD with select/poll for reads, then call read_watch()\n" \
 	"\n"					\
 	"Returns FD on success.\n"		\
-	"Raises qubes.qdb.Error on error.\n"	\
+	"Raises qubesdb.Error on error.\n"	\
 	"\n"
 
 static PyObject *qdbpy_watch_fd(QdbHandle *self)
@@ -344,14 +360,18 @@ static PyObject *qdbpy_watch_fd(QdbHandle *self)
     if (fd == -1) {
         return none(0);
     } else
+#if PY_VERSION_HEX >= 0x03000000
+        return PyLong_FromLong(fd);
+#else
         return PyInt_FromLong(fd);
+#endif
 }
 
 #define qdbpy_close_doc "\n"			\
 	"Close the connection to Qubes DB.\n"	\
 	"\n"					\
 	"Returns None on success.\n"		\
-	"Raises qubes.qdb.Error on error.\n"	\
+	"Raises qubesdb.Error on error.\n"	\
 	"\n"
 
 static PyObject *qdbpy_close(QdbHandle *self)
@@ -380,13 +400,19 @@ static int parse_handle_path(QdbHandle *self, PyObject *args,
                                   qdb_handle_t *qdb,
                                   char **path)
 {
+    int path_len;
     *qdb = qdbhandle(self);
 
     if (!qdb)
         return 0;
 
-    if (!PyArg_ParseTuple(args, "s", path))
+    if (!PyArg_ParseTuple(args, "s#", path, &path_len))
         return 0;
+
+    if (strlen(*path) != path_len) {
+        PyErr_SetString(PyExc_TypeError, "null byte in path");
+        return 0;
+    }
 
     return 1;
 }
@@ -401,6 +427,8 @@ static PyObject *none(bool result)
     else {
         if (errno == EPIPE) {
             PyErr_SetString(qdb_disconnected_error, "QubesDB disconnected");
+        } else if (errno == EINTR) {
+            PyErr_SetFromErrno(PyExc_OSError);
         } else {
             PyErr_SetFromErrno(qdb_error);
         }
@@ -429,11 +457,6 @@ static PyMethodDef qdbhandle_methods[] = {
     { NULL /* Sentinel. */ },
 };
 
-static PyObject *qdbhandle_getattr(PyObject *self, char *name)
-{
-    return Py_FindMethod(qdbhandle_methods, self, name);
-}
-
 static PyObject *
 qdbhandle_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -450,7 +473,7 @@ qdbhandle_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 qdbhandle_init(QdbHandle *self, PyObject *args)
 {
-    char *vmname;
+    char *vmname = NULL;
 
     if (!PyArg_ParseTuple(args, "|s", &vmname))
         goto fail;
@@ -473,16 +496,19 @@ static void qdbhandle_dealloc(QdbHandle *self)
         self->qdb = NULL;
     }
 
-    self->ob_type->tp_free((PyObject *)self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static PyTypeObject qdbhandle_type = {
+#if PY_VERSION_HEX >= 0x03000000
+    .ob_base = { PyObject_HEAD_INIT(NULL) },
+#else
     PyObject_HEAD_INIT(NULL)
+#endif
     .tp_name = PKG "." CLS,
     .tp_basicsize = sizeof(QdbHandle),
     .tp_itemsize = 0,
     .tp_dealloc = (destructor)qdbhandle_dealloc,
-    .tp_getattr = qdbhandle_getattr,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_doc = "Qubes DB connections",
     .tp_methods = qdbhandle_methods,
@@ -490,19 +516,42 @@ static PyTypeObject qdbhandle_type = {
     .tp_new = qdbhandle_new,
 };
 
+
 static PyMethodDef qdb_methods[] = { { NULL } };
 
-PyMODINIT_FUNC initqdb(void)
+#if PY_VERSION_HEX >= 0x03000000
+static struct PyModuleDef qubesdb_module = {
+    PyModuleDef_HEAD_INIT,
+    PKG,  /* name */
+    NULL, /* docstring */
+    0,    /* size of per-interpreter state of the module */
+    qdb_methods
+};
+#endif
+
+#if PY_VERSION_HEX >= 0x03000000
+PyMODINIT_FUNC PyInit_qubesdb(void)
+#else
+PyMODINIT_FUNC initqubesdb(void)
+#endif
 {
     PyObject *m;
 
+#if PY_VERSION_HEX >= 0x03000000
+    if (PyType_Ready(&qdbhandle_type) < 0)
+        return NULL;
+
+    m = PyModule_Create(&qubesdb_module);
+    if (m == NULL)
+        return NULL;
+#else
     if (PyType_Ready(&qdbhandle_type) < 0)
         return;
 
     m = Py_InitModule(PKG, qdb_methods);
-
     if (m == NULL)
-      return;
+        return;
+#endif
 
     qdb_error = PyErr_NewException(PKG ".Error", PyExc_RuntimeError, NULL);
 
@@ -521,4 +570,7 @@ PyMODINIT_FUNC initqdb(void)
     Py_INCREF(qdb_disconnected_error);
     PyModule_AddObject(m, "DisconnectedError", qdb_disconnected_error);
 
+#if PY_VERSION_HEX >= 0x03000000
+    return m;
+#endif
 }

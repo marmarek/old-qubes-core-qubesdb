@@ -20,6 +20,7 @@
 #include <pipe-server.h>
 #include <service.h>
 #include <list.h>
+#include <vchan-common.h>
 #endif
 
 #ifndef WIN32
@@ -33,7 +34,7 @@
 // parameters for a client pipe thread
 struct thread_param {
     struct db_daemon_data *daemon;
-    DWORD id;
+    LONGLONG id;
 };
 #endif
 
@@ -142,6 +143,27 @@ int mainloop(struct db_daemon_data *d) {
     DWORD status;
     HANDLE pipe_thread;
     HANDLE wait_objects[3];
+
+    if (!init_vchan(d)) {
+        perror("vchan initialization failed");
+        return 0;
+    }
+
+    if (!d->remote_name) {
+        /* request database sync from dom0 */
+        if (!request_full_db_sync(d)) {
+            LogError("FATAL: failed to request DB sync");
+            return 0;
+        }
+        d->multiread_requested = 1;
+        /* wait for complete response */
+        while (d->multiread_requested) {
+            if (!handle_vchan_data(d)) {
+                LogError("FATAL: vchan error");
+                return 0;
+            }
+        }
+    }
 
     // Create the thread that will handle client pipes
     pipe_thread = CreateThread(NULL, 0, pipe_thread_main, d->pipe_server, 0, NULL);
@@ -252,7 +274,7 @@ DWORD WINAPI pipe_thread_client(PVOID param) {
     }
 }
 
-void client_connected_callback(PIPE_SERVER server, DWORD id, PVOID context) {
+void client_connected_callback(PIPE_SERVER server, LONGLONG id, PVOID context) {
     HANDLE client_thread;
     struct thread_param *param;
 
@@ -460,6 +482,7 @@ int init_server_socket(struct db_daemon_data *d) {
     char socket_address[MAX_FILE_PATH];
     struct sockaddr_un sockname;
     int s;
+    struct stat stat_buf;
     mode_t old_umask;
 
     if (d->remote_name) {
@@ -501,6 +524,8 @@ int init_server_socket(struct db_daemon_data *d) {
     }
     d->socket_fd = s;
     umask(old_umask);
+    if (stat(sockname.sun_path, &stat_buf) == 0)
+        d->socket_ino = stat_buf.st_ino;
     return 1;
 }
 
@@ -518,13 +543,25 @@ int init_vchan(struct db_daemon_data *d) {
             d->vchan = NULL;
             return 1;
         }
+#ifndef WIN32
         d->vchan = libvchan_server_init(d->remote_domid, QUBESDB_VCHAN_PORT, 4096, 4096);
+#else
+        // We give a 5 minute timeout here because xeniface can take some time
+        // to load the first time after reboot after pvdrivers installation.
+        d->vchan = VchanInitServer(d->remote_domid, QUBESDB_VCHAN_PORT, 4096, 5 * 60 * 1000);
+#endif
         if (!d->vchan)
             return 0;
         d->remote_connected = 0;
     } else {
         /* VM part: connect to admin domain */
+#ifndef WIN32
         d->vchan = libvchan_client_init(d->remote_domid, QUBESDB_VCHAN_PORT);
+#else
+        // We give a 5 minute timeout here because xeniface can take some time
+        // to load the first time after reboot after pvdrivers installation.
+        d->vchan = VchanInitClient(d->remote_domid, QUBESDB_VCHAN_PORT, 5 * 60 * 1000);
+#endif
         if (!d->vchan)
             return 0;
         d->remote_connected = 1;
@@ -537,6 +574,7 @@ int create_pidfile(struct db_daemon_data *d) {
     char pidfile_name[256];
     FILE *pidfile;
     mode_t old_umask;
+    struct stat stat_buf;
 
     /* do not create pidfile for VM daemon - service is managed by systemd */
     if (!d->remote_name)
@@ -552,12 +590,15 @@ int create_pidfile(struct db_daemon_data *d) {
         return 0;
     }
     fprintf(pidfile, "%d\n", getpid());
+    if (fstat(fileno(pidfile), &stat_buf) == 0)
+        d->pidfile_ino = stat_buf.st_ino;
     fclose(pidfile);
     return 1;
 }
 
 void remove_pidfile(struct db_daemon_data *d) {
     char pidfile_name[256];
+    struct stat stat_buf;
 
     /* no pidfile for VM daemon - service is managed by systemd */
     if (!d->remote_name)
@@ -565,12 +606,17 @@ void remove_pidfile(struct db_daemon_data *d) {
     snprintf(pidfile_name, sizeof(pidfile_name),
             "/var/run/qubes/qubesdb.%s.pid", d->remote_name);
 
-    unlink(pidfile_name);
+    if (stat(pidfile_name, &stat_buf) == 0) {
+        /* remove pidfile only if it's the one created this process */
+        if (d->pidfile_ino == stat_buf.st_ino)
+            unlink(pidfile_name);
+    }
 }
 
 void close_server_socket(struct db_daemon_data *d) {
     struct sockaddr_un sockname;
     socklen_t addrlen;
+    struct stat stat_buf;
 
     if (d->socket_fd < 0)
         /* already closed */
@@ -581,7 +627,11 @@ void close_server_socket(struct db_daemon_data *d) {
         return;
 
     close(d->socket_fd);
-    unlink(sockname.sun_path);
+    if (stat(sockname.sun_path, &stat_buf) == 0) {
+        /* remove the socket only if it's the one created this process */
+        if (d->socket_ino == stat_buf.st_ino)
+            unlink(sockname.sun_path);
+    }
 }
 #endif // !WIN32
 
@@ -599,6 +649,15 @@ DWORD WINAPI service_thread(PVOID param) {
 
     return mainloop(d) ? NO_ERROR : ERROR_UNIDENTIFIED_ERROR;
 }
+
+static void vchan_logger(IN int logLevel, IN const CHAR *function, IN const WCHAR *format, IN va_list args)
+{
+    WCHAR buf[1024];
+
+    StringCbVPrintfW(buf, sizeof(buf), format, args);
+    _LogFormat(logLevel, FALSE, function, buf);
+}
+
 #endif
 
 int main(int argc, char **argv) {
@@ -646,7 +705,7 @@ int main(int argc, char **argv) {
 
                 close(0);
                 old_umask = umask(0);
-                log_fd = open(log_path, O_WRONLY | O_CREAT, 0664);
+                log_fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND, 0664);
                 umask(old_umask);
                 if (log_fd < 0) {
                     perror("open logfile");
@@ -676,6 +735,7 @@ int main(int argc, char **argv) {
 #ifndef WIN32
     d.db = qubesdb_init(write_client_buffered);
 #else
+    libvchan_register_logger(vchan_logger);
     d.db = qubesdb_init(send_watch_notify);
 #endif
     if (!d.db) {
@@ -690,8 +750,20 @@ int main(int argc, char **argv) {
 
 #ifdef WIN32
     d.db->pipe_server = d.pipe_server;
-#endif
+    /* For Windows, vchan is initialized later, after the service starts
+       and reports to the OS. Otherwise it can time-out after the first
+       reboot after installation and OS will kill the service.
 
+       start the service loop, service_thread runs mainloop()
+    */
+    ret = SvcMainLoop(QDB_DAEMON_SERVICE_NAME,
+                      0, // not interested in any control codes
+                      service_thread, // worker thread
+                      &d, // worker thread context
+                      NULL, // notification handler
+                      NULL // notification context
+                      );
+#else
     if (!init_vchan(&d)) {
         fprintf(stderr, "FATAL: vchan initialization failed\n");
         exit(1);
@@ -715,7 +787,6 @@ int main(int argc, char **argv) {
 
     /* now ready for serving requests, notify parent */
     /* FIXME: OS dependent code */
-#ifndef WIN32
     if (getenv("NOTIFY_SOCKET")) {
         sd_notify(1, "READY=1");
     } else {
@@ -727,17 +798,6 @@ int main(int argc, char **argv) {
     create_pidfile(&d);
 
     ret = !mainloop(&d);
-#else
-    // ideally all the above initialization should be performed in ServiceMain
-
-    // start the service loop, service_thread runs mainloop()
-    ret = SvcMainLoop(QDB_DAEMON_SERVICE_NAME,
-                      0, // not interested in any control codes
-                      service_thread, // worker thread
-                      &d, // worker thread context
-                      NULL, // notification handler
-                      NULL // notification context
-                      );
 #endif
 
     if (d.vchan)
